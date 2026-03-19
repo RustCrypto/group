@@ -12,6 +12,17 @@ pub trait WnafGroup: Group {
     /// Recommends a wNAF window size given the number of scalars you intend to multiply
     /// a base by. Always returns a number between 2 and 22, inclusive.
     fn recommended_wnaf_for_num_scalars(num_scalars: usize) -> usize;
+
+    /// Returns the scalar's canonical byte representation in little-endian
+    /// order, suitable for wNAF decomposition.
+    ///
+    /// The default implementation assumes
+    /// [`PrimeField::to_repr`] already returns little-endian bytes.
+    /// Implementations whose `Repr` is big-endian **must** override this
+    /// to reverse the byte order.
+    fn scalar_repr_to_le_bytes(repr: &<<Self as Group>::Scalar as PrimeField>::Repr) -> Vec<u8> {
+        repr.as_ref().to_vec()
+    }
 }
 
 /// Replaces the contents of `table` with a w-NAF window table for the given window size.
@@ -143,6 +154,13 @@ pub(crate) fn wnaf_form<S: AsRef<[u8]>>(wnaf: &mut Vec<i64>, c: S, window: usize
             wnaf.extend(iter::repeat(0).take(window - 1));
             pos += window;
         }
+    }
+
+    // If there is a remaining carry (the scalar used all `bit_len` bits
+    // and the last wNAF digit was negative), emit it so the
+    // representation is exact.
+    if carry != 0 {
+        wnaf.push(carry as i64);
     }
 }
 
@@ -314,8 +332,9 @@ impl<G: WnafGroup> Wnaf<(), Vec<G>, Vec<i64>> {
         // We hard-code a window size of 4.
         let window_size = 4;
 
-        // Compute the wNAF form of the scalar.
-        wnaf_form(&mut self.scalar, scalar.to_repr(), window_size);
+        // Compute the wNAF form of the scalar in little-endian byte order.
+        let le_bytes = G::scalar_repr_to_le_bytes(&scalar.to_repr());
+        wnaf_form(&mut self.scalar, le_bytes, window_size);
 
         // Return a Wnaf object that mutably borrows the base storage location, but
         // immutably borrows the computed wNAF form scalar location.
@@ -389,11 +408,12 @@ impl<B, S: AsRef<[i64]>> Wnaf<usize, B, S> {
 
 impl<B, S: AsMut<Vec<i64>>> Wnaf<usize, B, S> {
     /// Performs exponentiation given a scalar.
-    pub fn scalar<G: Group>(&mut self, scalar: &<G as Group>::Scalar) -> G
+    pub fn scalar<G: WnafGroup>(&mut self, scalar: &<G as Group>::Scalar) -> G
     where
         B: AsRef<[G]>,
     {
-        wnaf_form(self.scalar.as_mut(), scalar.to_repr(), self.window_size);
+        let le_bytes = G::scalar_repr_to_le_bytes(&scalar.to_repr());
+        wnaf_form(self.scalar.as_mut(), le_bytes, self.window_size);
         wnaf_exp(self.base.as_ref(), self.scalar.as_mut())
     }
 }
@@ -424,11 +444,32 @@ impl<F: PrimeField, const WINDOW_SIZE: usize> memuse::DynamicUsage for WnafScala
 impl<F: PrimeField, const WINDOW_SIZE: usize> WnafScalar<F, WINDOW_SIZE> {
     /// Computes the w-NAF representation of the given scalar with the specified
     /// `WINDOW_SIZE`.
+    ///
+    /// **Important:** This assumes `F::to_repr()` returns little-endian
+    /// bytes. For fields whose `Repr` is big-endian, use
+    /// [`new_for_group`](Self::new_for_group) instead.
     pub fn new(scalar: &F) -> Self {
         let mut wnaf = vec![];
 
         // Compute the w-NAF form of the scalar.
         wnaf_form(&mut wnaf, scalar.to_repr(), WINDOW_SIZE);
+
+        WnafScalar {
+            wnaf,
+            field: PhantomData::default(),
+        }
+    }
+
+    /// Computes the w-NAF representation of the given scalar, using `G`'s
+    /// [`WnafGroup::scalar_repr_to_le_bytes`] to handle byte-order
+    /// normalization.
+    pub fn new_for_group<G>(scalar: &F) -> Self
+    where
+        G: WnafGroup<Scalar = F>,
+    {
+        let mut wnaf = vec![];
+        let le_bytes = G::scalar_repr_to_le_bytes(&scalar.to_repr());
+        wnaf_form(&mut wnaf, le_bytes, WINDOW_SIZE);
 
         WnafScalar {
             wnaf,
