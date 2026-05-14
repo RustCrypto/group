@@ -15,13 +15,18 @@ pub trait WnafGroup: Group {
 }
 
 /// Replaces the contents of `table` with a w-NAF window table for the given window size.
+///
+/// For a window of size `w`, non-zero wNAF digits are odd and have magnitude at most
+/// `2^(w-1) - 1`. The table is indexed by `|digit| / 2`, so the required size is
+/// `(2^(w-1) - 1) / 2 + 1 = 2^(w-2)` entries.
 pub(crate) fn wnaf_table<G: Group>(table: &mut Vec<G>, mut base: G, window: usize) {
+    let table_len = 1 << (window - 2);
     table.truncate(0);
-    table.reserve(1 << (window - 1));
+    table.reserve(table_len);
 
     let dbl = base.double();
 
-    for _ in 0..(1 << (window - 1)) {
+    for _ in 0..table_len {
         table.push(base);
         base.add_assign(&dbl);
     }
@@ -458,7 +463,22 @@ impl<F: PrimeField, const WINDOW_SIZE: usize> WnafScalar<F, WINDOW_SIZE> {
 
         WnafScalar {
             wnaf,
-            field: PhantomData::default(),
+            field: PhantomData,
+        }
+    }
+
+    /// Computes the w-NAF representation from raw little-endian bytes.
+    ///
+    /// This is useful when the scalar has been pre-decomposed (e.g. via GLV endomorphism)
+    /// and is available as a byte slice shorter than the full field representation.
+    /// Shorter slices produce fewer wNAF digits, reducing the number of doublings in
+    /// the evaluation loop.
+    pub fn from_le_bytes(bytes: &[u8]) -> Self {
+        let mut wnaf = vec![];
+        wnaf_form(&mut wnaf, bytes, WINDOW_SIZE);
+        WnafScalar {
+            wnaf,
+            field: PhantomData,
         }
     }
 }
