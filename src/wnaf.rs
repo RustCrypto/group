@@ -456,10 +456,9 @@ impl<F: PrimeField, const WINDOW_SIZE: usize> WnafScalar<F, WINDOW_SIZE> {
     /// Computes the w-NAF representation of the given scalar with the specified
     /// `WINDOW_SIZE`.
     pub fn new(scalar: &F) -> Self {
-        let mut wnaf = vec![];
-
-        // Compute the w-NAF form of the scalar.
-        wnaf_form(&mut wnaf, scalar.to_le_repr(), WINDOW_SIZE);
+        let repr = scalar.to_le_repr();
+        let mut wnaf = Vec::with_capacity(repr.as_ref().len() * 8 + WINDOW_SIZE);
+        wnaf_form(&mut wnaf, repr, WINDOW_SIZE);
 
         WnafScalar {
             wnaf,
@@ -474,8 +473,9 @@ impl<F: PrimeField, const WINDOW_SIZE: usize> WnafScalar<F, WINDOW_SIZE> {
     /// Shorter slices produce fewer wNAF digits, reducing the number of doublings in
     /// the evaluation loop.
     pub fn from_le_bytes(bytes: &[u8]) -> Self {
-        let mut wnaf = vec![];
+        let mut wnaf = Vec::with_capacity(bytes.len() * 8 + WINDOW_SIZE);
         wnaf_form(&mut wnaf, bytes, WINDOW_SIZE);
+
         WnafScalar {
             wnaf,
             field: PhantomData,
@@ -538,11 +538,8 @@ impl<G: Group + memuse::DynamicUsage, const WINDOW_SIZE: usize> memuse::DynamicU
 impl<G: Group, const WINDOW_SIZE: usize> WnafBase<G, WINDOW_SIZE> {
     /// Computes a window table for the given base with the specified `WINDOW_SIZE`.
     pub fn new(base: G) -> Self {
-        let mut table = vec![];
-
-        // Compute a window table for the provided base and window size.
+        let mut table = Vec::with_capacity(1 << (WINDOW_SIZE - 2));
         wnaf_table(&mut table, base, WINDOW_SIZE);
-
         WnafBase { table }
     }
 
@@ -559,6 +556,18 @@ impl<G: Group, const WINDOW_SIZE: usize> WnafBase<G, WINDOW_SIZE> {
         let tables = bases.map(|base| base.table.as_slice()).collect::<Vec<_>>();
 
         wnaf_multi_exp(tables.as_slice(), wnafs.as_slice())
+    }
+
+    /// Perform a multiscalar multiplication over a fixed-size array of bases and scalars,
+    /// avoiding heap allocation for the slice-of-slices.
+    pub fn multiscalar_mul_array<const N: usize>(
+        scalars: &[WnafScalar<G::Scalar, WINDOW_SIZE>; N],
+        bases: &[Self; N],
+    ) -> G {
+        let wnafs = scalars.each_ref().map(|s| s.wnaf.as_slice());
+        let tables = bases.each_ref().map(|b| b.table.as_slice());
+
+        wnaf_multi_exp(&tables, &wnafs)
     }
 }
 
