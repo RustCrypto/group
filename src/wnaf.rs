@@ -461,6 +461,28 @@ impl<F: PrimeField, const WINDOW_SIZE: usize> WnafScalar<F, WINDOW_SIZE> {
             field: PhantomData::default(),
         }
     }
+
+    /// Computes the w-NAF representation from raw little-endian bytes.
+    ///
+    /// This is useful when the scalar has been pre-decomposed (e.g. via GLV endomorphism)
+    /// and is available as a byte slice shorter than the full field representation.
+    /// Shorter slices produce fewer wNAF digits, reducing the number of doublings in
+    /// the evaluation loop.
+    ///
+    /// Returns `None` if `bytes` is longer than the field's canonical representation,
+    /// which would risk encoding a value outside the valid scalar range.
+    pub fn from_le_bytes(bytes: &[u8]) -> Option<Self> {
+        let repr_len = F::Repr::default().as_ref().len();
+        if bytes.len() > repr_len {
+            return None;
+        }
+        let mut wnaf = Vec::with_capacity(bytes.len() * 8 + WINDOW_SIZE);
+        wnaf_form(&mut wnaf, bytes, WINDOW_SIZE);
+        Some(WnafScalar {
+            wnaf,
+            field: PhantomData,
+        })
+    }
 }
 
 /// A fixed window table for a group element, precomputed to improve the speed of scalar
