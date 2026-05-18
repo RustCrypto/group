@@ -540,6 +540,18 @@ impl<G: Group, const WINDOW_SIZE: usize> WnafBase<G, WINDOW_SIZE> {
 
         wnaf_multi_exp(tables.as_slice(), wnafs.as_slice())
     }
+
+    /// Perform a multiscalar multiplication over a fixed-size array of bases and scalars,
+    /// avoiding heap allocation for the slice-of-slices.
+    pub fn multiscalar_mul_array<const N: usize>(
+        scalars: &[WnafScalar<G::Scalar, WINDOW_SIZE>; N],
+        bases: &[Self; N],
+    ) -> G {
+        let wnafs = scalars.each_ref().map(|s| s.wnaf.as_slice());
+        let tables = bases.each_ref().map(|b| b.table.as_slice());
+
+        wnaf_multi_exp(&tables, &wnafs)
+    }
 }
 
 impl<G: Group, const WINDOW_SIZE: usize> Mul<&WnafScalar<G::Scalar, WINDOW_SIZE>>
