@@ -4,8 +4,9 @@ version = 4
 
 [[package]]
 name = "ff"
-version = "0.14.0-pre.0"
-source = "git+https://github.com/zkcrypto/ff?rev=bdd74a3f75c4c378d69e954944a61bb0930532a0#bdd74a3f75c4c378d69e954944a61bb0930532a0"
+version = "0.14.0-pre.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d1fa20678d31fcd57b1e146f5ca2c24282428601f45a1002a0d2a54136ef681"
 dependencies = [
  "rand_core",
  "subtle",
