@@ -5,7 +5,7 @@ version = 4
 [[package]]
 name = "ff"
 version = "0.14.0-pre.0"
-source = "git+https://github.com/tarcieri/ff?branch=rand_core%2Fv0.10#810bfd0c67ee31663b696e6af26d1b2cea13c409"
+source = "git+https://github.com/zkcrypto/ff?rev=bdd74a3f75c4c378d69e954944a61bb0930532a0#bdd74a3f75c4c378d69e954944a61bb0930532a0"
 dependencies = [
  "rand_core",
  "subtle",

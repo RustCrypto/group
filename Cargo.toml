@@ -35,4 +35,5 @@ wnaf-memuse = ["alloc", "memuse"]
 maintenance = { status = "actively-developed" }
 
 [patch.crates-io]
-ff = { git = "https://github.com/tarcieri/ff", branch = "rand_core/v0.10" }
+# targets zkcrypto's `release-0.14.0` branch
+ff = { git = "https://github.com/zkcrypto/ff", rev = "bdd74a3f75c4c378d69e954944a61bb0930532a0" }
