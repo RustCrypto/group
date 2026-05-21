@@ -78,12 +78,12 @@ pub trait Group:
     ///
     /// This function is non-deterministic, and samples from the user-provided RNG.
     fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        Self::try_from_rng(rng)
+        Self::try_random(rng)
             .map_err(|e: Infallible| e)
             .expect("Infallible failed")
 
         // NOTE: once MSRV gets to 1.82 remove the map_err/expect and use
-        // let Ok(out) = Self::try_from_rng(rng);
+        // let Ok(out) = Self::try_random(rng);
         // out
         // See: https://blog.rust-lang.org/2024/10/17/Rust-1.82.0.html#omitting-empty-types-in-pattern-matching
     }
@@ -92,7 +92,7 @@ pub trait Group:
     /// this group.
     ///
     /// This function is non-deterministic, and samples from the user-provided RNG.
-    fn try_from_rng<R: TryRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error>;
+    fn try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error>;
 
     /// Returns the additive identity, also known as the "neutral element".
     fn identity() -> Self;

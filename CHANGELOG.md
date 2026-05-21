@@ -15,7 +15,7 @@ and this library adheres to Rust's notion of
 - `group::Group::random(rng: impl RngCore) -> Self` has been changed to
   `Group::random<R: RngCore + ?Sized>(rng: &mut R) -> Self`, to enable passing a
   trait object as the RNG.
-- `group::Group::try_from_rng` is a new trait method that must be implemented by
+- `group::Group::try_random` is a new trait method that must be implemented by
   downstreams. `Group::random` now has a default implementation that calls it.
 - The curve-related traits have been refactored around the new `CurveAffine`
   trait:
