@@ -8,10 +8,12 @@ and this library adheres to Rust's notion of
 ## [Unreleased]
 ### Added
 - `group::CurveAffine`
+- `group::Group::mul_by_generator`, with a default implementation. Implementors
+  can override it to take advantage of precomputed tables.
 
 ### Changed
-- MSRV is now 1.63.0.
-- Migrated to `ff 0.14`, `rand_core 0.9`.
+- MSRV is now 1.85.0.
+- Migrated to `ff 0.14`, `rand_core 0.10`.
 - `group::Group::random(rng: impl RngCore) -> Self` has been changed to
   `Group::random<R: RngCore + ?Sized>(rng: &mut R) -> Self`, to enable passing a
   trait object as the RNG.
