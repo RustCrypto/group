@@ -73,18 +73,22 @@ pub trait Group:
     type Scalar: PrimeField;
 
     /// Returns an element chosen uniformly at random from the non-identity elements of
-    /// this group.
+    /// this group using a user-provided infallible RNG.
     ///
-    /// This function is non-deterministic, and samples from the user-provided RNG.
+    /// This is a convenience wrapper around [`Group::try_random`] for RNGs that cannot
+    /// fail. Use [`Group::try_random`] if your RNG may fail (for example, an OS-backed
+    /// entropy source).
     fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
         let Ok(out) = Self::try_random(rng);
         out
     }
 
     /// Returns an element chosen uniformly at random from the non-identity elements of
-    /// this group.
+    /// this group using a user-provided fallible RNG.
     ///
-    /// This function is non-deterministic, and samples from the user-provided RNG.
+    /// Returns `Err` propagating the RNG's error if the underlying RNG fails to produce
+    /// the randomness required to sample an element. Implementors of `Group` must
+    /// provide this method; [`Group::random`] is derived from it for infallible RNGs.
     fn try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error>;
 
     /// Returns the additive identity, also known as the "neutral element".
