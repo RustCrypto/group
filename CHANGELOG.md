@@ -17,7 +17,7 @@ and this library adheres to Rust's notion of
 
 ### Changed
 - MSRV is now 1.85.0.
-- Migrated to `ff 0.14`, `rand_core 0.10`.
+- Bumped dependencies to `ff 0.14`, `rand_core 0.10`.
 - `group::Group::random(rng: impl RngCore) -> Self` has been changed to
   `Group::random<R: Rng + ?Sized>(rng: &mut R) -> Self`, to enable passing a
   trait object as the RNG. It now has a default implementation in terms of
