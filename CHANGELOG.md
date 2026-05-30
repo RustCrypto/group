@@ -6,6 +6,8 @@ and this library adheres to Rust's notion of
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.14.0] - 2026-06-01
 ### Added
 - `group::CurveAffine`, an affine-representation trait that the curve-specific
   affine traits are now built on top of.
