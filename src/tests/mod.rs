@@ -305,7 +305,7 @@ fn random_addition_tests<G: PrimeCurve>() {
             assert_eq!(aplusa, aplusamixed);
         }
 
-        let mut tmp = vec![G::identity(); 6];
+        let mut tmp = [G::identity(); 6];
 
         // (a + b) + c
         tmp[0] = a;

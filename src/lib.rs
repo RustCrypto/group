@@ -9,7 +9,6 @@ extern crate alloc;
 // Re-export ff to make version-matching easier.
 pub use ff;
 
-use core::convert::Infallible;
 use core::fmt;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
@@ -78,14 +77,8 @@ pub trait Group:
     ///
     /// This function is non-deterministic, and samples from the user-provided RNG.
     fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        Self::try_random(rng)
-            .map_err(|e: Infallible| e)
-            .expect("Infallible failed")
-
-        // NOTE: once MSRV gets to 1.82 remove the map_err/expect and use
-        // let Ok(out) = Self::try_random(rng);
-        // out
-        // See: https://blog.rust-lang.org/2024/10/17/Rust-1.82.0.html#omitting-empty-types-in-pattern-matching
+        let Ok(out) = Self::try_random(rng);
+        out
     }
 
     /// Returns an element chosen uniformly at random from the non-identity elements of
