@@ -7,18 +7,21 @@ and this library adheres to Rust's notion of
 
 ## [Unreleased]
 ### Added
-- `group::CurveAffine`
+- `group::CurveAffine`, an affine-representation trait that the curve-specific
+  affine traits are now built on top of.
 - `group::Group::mul_by_generator`, with a default implementation. Implementors
   can override it to take advantage of precomputed tables.
+- `group::Group::try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error>`,
+  a new trait method that must be implemented by downstreams. It samples a
+  non-identity group element using a fallible RNG and propagates the RNG's error.
 
 ### Changed
 - MSRV is now 1.85.0.
 - Migrated to `ff 0.14`, `rand_core 0.10`.
 - `group::Group::random(rng: impl RngCore) -> Self` has been changed to
-  `Group::random<R: RngCore + ?Sized>(rng: &mut R) -> Self`, to enable passing a
-  trait object as the RNG.
-- `group::Group::try_random` is a new trait method that must be implemented by
-  downstreams. `Group::random` now has a default implementation that calls it.
+  `Group::random<R: Rng + ?Sized>(rng: &mut R) -> Self`, to enable passing a
+  trait object as the RNG. It now has a default implementation in terms of
+  `Group::try_random`.
 - The curve-related traits have been refactored around the new `CurveAffine`
   trait:
   - `group::Curve::AffineRepr` has been renamed to `Curve::Affine`.
