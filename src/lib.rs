@@ -110,9 +110,7 @@ pub trait Group:
 /// Efficient representation of an elliptic curve point.
 pub trait Curve: Group + GroupOps<Self::Affine> + GroupOpsOwned<Self::Affine> {
     /// The affine representation for this elliptic curve.
-    type Affine: CurveAffine<Curve = Self, Scalar = Self::Scalar>
-        + Mul<Self::Scalar, Output = Self>
-        + for<'r> Mul<&'r Self::Scalar, Output = Self>;
+    type Affine: CurveAffine<Curve = Self, Scalar = Self::Scalar>;
 
     /// Converts a batch of projective elements into affine elements. This function will
     /// panic if `p.len() != q.len()`.
