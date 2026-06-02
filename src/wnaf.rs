@@ -144,55 +144,29 @@ pub(crate) fn wnaf_form<S: AsRef<[u8]>>(wnaf: &mut Vec<i64>, c: S, window: usize
             pos += window;
         }
     }
-
-    // If there is a remaining carry (the scalar used all `bit_len` bits
-    // and the last wNAF digit was negative), emit it so the
-    // representation is exact.
-    if carry != 0 {
-        wnaf.push(carry as i64);
-    }
 }
 
 /// Performs w-NAF exponentiation with the provided window table and w-NAF form scalar.
 ///
 /// This function must be provided a `table` and `wnaf` that were constructed with
 /// the same window size; otherwise, it may panic or produce invalid results.
-#[inline]
 pub(crate) fn wnaf_exp<G: Group>(table: &[G], wnaf: &[i64]) -> G {
-    wnaf_multi_exp(&[table], &[wnaf])
-}
-
-/// Performs w-NAF multi-exponentiation using the interleaved window method, also known as
-/// Straus' method.
-///
-/// The key insight is that when computing this sum by means of additions and doublings, the
-/// doublings can be shared by performing the additions within an inner loop.
-///
-/// This function must be provided with `tables` and `wnafs` that were constructed with
-/// the same window size; otherwise, it may panic or produce invalid results.
-pub(crate) fn wnaf_multi_exp<G: Group>(tables: &[&[G]], wnafs: &[&[i64]]) -> G {
-    debug_assert_eq!(tables.len(), wnafs.len());
-    let window_size = wnafs.iter().map(|w| w.len()).max().unwrap_or(0);
-
     let mut result = G::identity();
+
     let mut found_one = false;
 
-    for i in (0..window_size).rev() {
-        // Only double once per iteration of the loop
+    for n in wnaf.iter().rev() {
         if found_one {
             result = result.double();
         }
 
-        for (&table, &wnaf) in tables.iter().zip(wnafs.iter()) {
-            let n = wnaf.get(i).copied().unwrap_or(0);
-            if n != 0 {
-                found_one = true;
+        if *n != 0 {
+            found_one = true;
 
-                if n > 0 {
-                    result += &table[(n / 2) as usize];
-                } else {
-                    result -= &table[((-n) / 2) as usize];
-                }
+            if *n > 0 {
+                result += &table[(n / 2) as usize];
+            } else {
+                result -= &table[((-n) / 2) as usize];
             }
         }
     }
@@ -341,7 +315,7 @@ impl<G: WnafGroup> Wnaf<(), Vec<G>, Vec<i64>> {
         let window_size = 4;
 
         // Compute the wNAF form of the scalar.
-        wnaf_form(&mut self.scalar, scalar.to_le_repr(), window_size);
+        wnaf_form(&mut self.scalar, scalar.to_repr(), window_size);
 
         // Return a Wnaf object that mutably borrows the base storage location, but
         // immutably borrows the computed wNAF form scalar location.
@@ -366,7 +340,7 @@ impl<'a, G: Group> Wnaf<usize, &'a [G], &'a mut Vec<i64>> {
 }
 
 #[cfg(feature = "wnaf-memuse")]
-impl<'a, G: Group> memuse::DynamicUsage for Wnaf<usize, &'a [G], Vec<i64>> {
+impl<G: Group> memuse::DynamicUsage for Wnaf<usize, &[G], Vec<i64>> {
     fn dynamic_usage(&self) -> usize {
         // The heap memory for the window table is counted in the parent `Wnaf`.
         self.scalar.dynamic_usage()
@@ -391,7 +365,7 @@ impl<'a, G: Group> Wnaf<usize, &'a mut Vec<G>, &'a [i64]> {
 }
 
 #[cfg(feature = "wnaf-memuse")]
-impl<'a, G: Group + memuse::DynamicUsage> memuse::DynamicUsage for Wnaf<usize, Vec<G>, &'a [i64]> {
+impl<G: Group + memuse::DynamicUsage> memuse::DynamicUsage for Wnaf<usize, Vec<G>, &[i64]> {
     fn dynamic_usage(&self) -> usize {
         // The heap memory for the scalar representation is counted in the parent `Wnaf`.
         self.base.dynamic_usage()
@@ -419,7 +393,7 @@ impl<B, S: AsMut<Vec<i64>>> Wnaf<usize, B, S> {
     where
         B: AsRef<[G]>,
     {
-        wnaf_form(self.scalar.as_mut(), scalar.to_le_repr(), self.window_size);
+        wnaf_form(self.scalar.as_mut(), scalar.to_repr(), self.window_size);
         wnaf_exp(self.base.as_ref(), self.scalar.as_mut())
     }
 }
@@ -454,11 +428,11 @@ impl<F: PrimeField, const WINDOW_SIZE: usize> WnafScalar<F, WINDOW_SIZE> {
         let mut wnaf = vec![];
 
         // Compute the w-NAF form of the scalar.
-        wnaf_form(&mut wnaf, scalar.to_le_repr(), WINDOW_SIZE);
+        wnaf_form(&mut wnaf, scalar.to_repr(), WINDOW_SIZE);
 
         WnafScalar {
             wnaf,
-            field: PhantomData::default(),
+            field: PhantomData,
         }
     }
 }
@@ -524,21 +498,6 @@ impl<G: Group, const WINDOW_SIZE: usize> WnafBase<G, WINDOW_SIZE> {
         wnaf_table(&mut table, base, WINDOW_SIZE);
 
         WnafBase { table }
-    }
-
-    /// Perform a multiscalar multiplication.
-    pub fn multiscalar_mul<'a, I, J>(scalars: I, bases: J) -> G
-    where
-        I: Iterator<Item = &'a WnafScalar<G::Scalar, WINDOW_SIZE>>,
-        J: Iterator<Item = &'a Self>,
-    {
-        let wnafs = scalars
-            .map(|scalar| scalar.wnaf.as_slice())
-            .collect::<Vec<_>>();
-
-        let tables = bases.map(|base| base.table.as_slice()).collect::<Vec<_>>();
-
-        wnaf_multi_exp(tables.as_slice(), wnafs.as_slice())
     }
 }
 

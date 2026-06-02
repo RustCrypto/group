@@ -33,3 +33,6 @@ wnaf-memuse = ["alloc", "memuse"]
 
 [badges]
 maintenance = { status = "actively-developed" }
+
+[patch.crates-io.rustcrypto-ff]
+git = "https://github.com/RustCrypto/ff"
