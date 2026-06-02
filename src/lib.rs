@@ -9,7 +9,6 @@ extern crate alloc;
 // Re-export ff to make version-matching easier.
 pub use ff;
 
-use core::convert::Infallible;
 use core::fmt;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
@@ -74,25 +73,23 @@ pub trait Group:
     type Scalar: PrimeField;
 
     /// Returns an element chosen uniformly at random from the non-identity elements of
-    /// this group.
+    /// this group using a user-provided infallible RNG.
     ///
-    /// This function is non-deterministic, and samples from the user-provided RNG.
+    /// This is a convenience wrapper around [`Group::try_random`] for RNGs that cannot
+    /// fail. Use [`Group::try_random`] if your RNG may fail (for example, an OS-backed
+    /// entropy source).
     fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        Self::try_from_rng(rng)
-            .map_err(|e: Infallible| e)
-            .expect("Infallible failed")
-
-        // NOTE: once MSRV gets to 1.82 remove the map_err/expect and use
-        // let Ok(out) = Self::try_from_rng(rng);
-        // out
-        // See: https://blog.rust-lang.org/2024/10/17/Rust-1.82.0.html#omitting-empty-types-in-pattern-matching
+        let Ok(out) = Self::try_random(rng);
+        out
     }
 
     /// Returns an element chosen uniformly at random from the non-identity elements of
-    /// this group.
+    /// this group using a user-provided fallible RNG.
     ///
-    /// This function is non-deterministic, and samples from the user-provided RNG.
-    fn try_from_rng<R: TryRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error>;
+    /// Returns `Err` propagating the RNG's error if the underlying RNG fails to produce
+    /// the randomness required to sample an element. Implementors of `Group` must
+    /// provide this method; [`Group::random`] is derived from it for infallible RNGs.
+    fn try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error>;
 
     /// Returns the additive identity, also known as the "neutral element".
     fn identity() -> Self;
@@ -114,16 +111,14 @@ pub trait Group:
     }
 }
 
-/// Efficient representation of an elliptic curve point guaranteed.
-pub trait Curve:
-    Group + GroupOps<<Self as Curve>::AffineRepr> + GroupOpsOwned<<Self as Curve>::AffineRepr>
-{
+/// Efficient representation of an elliptic curve point.
+pub trait Curve: Group + GroupOps<Self::Affine> + GroupOpsOwned<Self::Affine> {
     /// The affine representation for this elliptic curve.
-    type AffineRepr;
+    type Affine: CurveAffine<Curve = Self, Scalar = Self::Scalar>;
 
     /// Converts a batch of projective elements into affine elements. This function will
     /// panic if `p.len() != q.len()`.
-    fn batch_normalize(p: &[Self], q: &mut [Self::AffineRepr]) {
+    fn batch_normalize(p: &[Self], q: &mut [Self::Affine]) {
         assert_eq!(p.len(), q.len());
 
         for (p, q) in p.iter().zip(q.iter_mut()) {
@@ -132,7 +127,42 @@ pub trait Curve:
     }
 
     /// Converts this element into its affine representation.
-    fn to_affine(&self) -> Self::AffineRepr;
+    fn to_affine(&self) -> Self::Affine;
+}
+
+/// Affine representation of an elliptic curve point.
+pub trait CurveAffine:
+    GroupEncoding
+    + Copy
+    + fmt::Debug
+    + Eq
+    + Send
+    + Sync
+    + 'static
+    + Neg<Output = Self>
+    + Mul<<Self::Curve as Group>::Scalar, Output = Self::Curve>
+    + for<'r> Mul<&'r <Self::Curve as Group>::Scalar, Output = Self::Curve>
+{
+    /// The efficient representation for this elliptic curve.
+    type Curve: Curve<Affine = Self, Scalar = Self::Scalar>;
+
+    /// Scalars modulo the order of this group's scalar field.
+    ///
+    /// This associated type is temporary, and will be removed once downstream users have
+    /// migrated to using `Curve` as the primary generic bound.
+    type Scalar: PrimeField;
+
+    /// Returns the additive identity.
+    fn identity() -> Self;
+
+    /// Returns a fixed generator of unknown exponent.
+    fn generator() -> Self;
+
+    /// Determines if this point represents the additive identity.
+    fn is_identity(&self) -> Choice;
+
+    /// Converts this affine point to its efficient representation.
+    fn to_curve(&self) -> Self::Curve;
 }
 
 pub trait GroupEncoding: Sized {
