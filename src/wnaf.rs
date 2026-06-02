@@ -163,9 +163,12 @@ pub(crate) fn wnaf_exp<G: Group>(table: &[G], wnaf: &[i64]) -> G {
 ///
 /// This function must be provided with `tables` and `wnafs` that were constructed with
 /// the same window size; otherwise, it may panic or produce invalid results.
-pub(crate) fn wnaf_multi_exp<G: Group>(tables: &[&[G]], wnafs: &[&[i64]]) -> G {
+pub(crate) fn wnaf_multi_exp<G: Group, T: AsRef<[G]>, W: AsRef<[i64]>>(
+    tables: &[T],
+    wnafs: &[W],
+) -> G {
     debug_assert_eq!(tables.len(), wnafs.len());
-    let window_size = wnafs.iter().map(|w| w.len()).max().unwrap_or(0);
+    let window_size = wnafs.iter().map(|w| w.as_ref().len()).max().unwrap_or(0);
 
     let mut result = G::identity();
     let mut found_one = false;
@@ -176,15 +179,15 @@ pub(crate) fn wnaf_multi_exp<G: Group>(tables: &[&[G]], wnafs: &[&[i64]]) -> G {
             result = result.double();
         }
 
-        for (&table, &wnaf) in tables.iter().zip(wnafs.iter()) {
-            let n = wnaf.get(i).copied().unwrap_or(0);
+        for (table, wnaf) in tables.iter().zip(wnafs.iter()) {
+            let n = wnaf.as_ref().get(i).copied().unwrap_or(0);
             if n != 0 {
                 found_one = true;
 
                 if n > 0 {
-                    result += &table[(n / 2) as usize];
+                    result += table.as_ref()[(n / 2) as usize];
                 } else {
-                    result -= &table[((-n) / 2) as usize];
+                    result -= table.as_ref()[((-n) / 2) as usize];
                 }
             }
         }
@@ -520,17 +523,16 @@ impl<G: Group, const WINDOW_SIZE: usize> WnafBase<G, WINDOW_SIZE> {
     }
 
     /// Perform a multiscalar multiplication.
-    pub fn multiscalar_mul<'a, I, J>(scalars: I, bases: J) -> G
+    ///
+    /// Computes a sum-of-products `aA + bB + ...` in variable time with w-NAF multi-exponentiation
+    /// using the interleaved window method, also known as Straus' method.
+    pub fn multiscalar_mul<I, J>(scalars: I, bases: J) -> G
     where
-        I: Iterator<Item = &'a WnafScalar<G::Scalar, WINDOW_SIZE>>,
-        J: Iterator<Item = &'a Self>,
+        I: IntoIterator<Item = WnafScalar<G::Scalar, WINDOW_SIZE>>,
+        J: IntoIterator<Item = Self>,
     {
-        let wnafs = scalars
-            .map(|scalar| scalar.wnaf.as_slice())
-            .collect::<Vec<_>>();
-
-        let tables = bases.map(|base| base.table.as_slice()).collect::<Vec<_>>();
-
+        let wnafs = scalars.into_iter().map(|s| s.wnaf).collect::<Vec<_>>();
+        let tables = bases.into_iter().map(|b| b.table).collect::<Vec<_>>();
         wnaf_multi_exp(tables.as_slice(), wnafs.as_slice())
     }
 }
