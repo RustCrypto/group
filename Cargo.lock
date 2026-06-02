@@ -35,7 +35,7 @@ dependencies = [
 [[package]]
 name = "rustcrypto-ff"
 version = "0.14.0-rc.1"
-source = "git+https://github.com/RustCrypto/ff#37c269c485d1803b76ac921ac8b0db83645393b4"
+source = "git+https://github.com/RustCrypto/ff#064c5a7418576641bd58ae244a8eea1c9592f577"
 dependencies = [
  "rand_core",
  "subtle",

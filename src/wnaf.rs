@@ -144,6 +144,12 @@ pub(crate) fn wnaf_form<S: AsRef<[u8]>>(wnaf: &mut Vec<i64>, c: S, window: usize
             pos += window;
         }
     }
+
+    // If there is a remaining carry (the scalar used all `bit_len` bit and the last wNAF digit was
+    // negative), emit it so the representation is exact.
+    if carry != 0 {
+        wnaf.push(carry as i64);
+    }
 }
 
 /// Performs w-NAF exponentiation with the provided window table and w-NAF form scalar.
@@ -315,7 +321,7 @@ impl<G: WnafGroup> Wnaf<(), Vec<G>, Vec<i64>> {
         let window_size = 4;
 
         // Compute the wNAF form of the scalar.
-        wnaf_form(&mut self.scalar, scalar.to_repr(), window_size);
+        wnaf_form(&mut self.scalar, le_repr(scalar), window_size);
 
         // Return a Wnaf object that mutably borrows the base storage location, but
         // immutably borrows the computed wNAF form scalar location.
@@ -393,7 +399,7 @@ impl<B, S: AsMut<Vec<i64>>> Wnaf<usize, B, S> {
     where
         B: AsRef<[G]>,
     {
-        wnaf_form(self.scalar.as_mut(), scalar.to_repr(), self.window_size);
+        wnaf_form(self.scalar.as_mut(), le_repr(scalar), self.window_size);
         wnaf_exp(self.base.as_ref(), self.scalar.as_mut())
     }
 }
@@ -509,4 +515,15 @@ impl<G: Group, const WINDOW_SIZE: usize> Mul<&WnafScalar<G::Scalar, WINDOW_SIZE>
     fn mul(self, rhs: &WnafScalar<G::Scalar, WINDOW_SIZE>) -> Self::Output {
         wnaf_exp(&self.table, &rhs.wnaf)
     }
+}
+
+/// Get the little endian representation of a field, namely a scalar.
+fn le_repr<F: PrimeField>(fe: &F) -> F::Repr {
+    let mut ret = fe.to_repr();
+
+    if F::BYTE_ORDER == ff::ByteOrder::BigEndian {
+        ret.as_mut().reverse();
+    }
+
+    ret
 }
