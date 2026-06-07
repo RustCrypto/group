@@ -1,3 +1,5 @@
+Note: this repo is defunct. Please use the upstream crate.
+
 # [RustCrypto]: group [![Crates.io](https://img.shields.io/crates/v/group.svg)](https://crates.io/crates/group) #
 
 `group` is a crate for working with groups over elliptic curves.
